@@ -205,7 +205,7 @@ class FetchBlockConstructionEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
             raise NotImplementedError
 
         goals = []
-
+        object_0_pos = self.sim.data.get_site_xpos(self.object_names[0])
         if case == "Singletower":
             goal_object0 = self.initial_gripper_xpos[:3] + self.np_random.uniform(-self.target_range, self.target_range,
                                                                                   size=3)
@@ -215,8 +215,11 @@ class FetchBlockConstructionEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
             if self.target_in_the_air and self.np_random.uniform() < 0.5 and not self.stack_only:
                 # If we're only stacking, do not allow the block0 to be in the air
                 goal_object0[2] += self.np_random.uniform(0, 0.45)
+            else: #if not in air, ensure it is away
+                if np.linalg.norm( object_0_pos - goal_object0) < self.distance_threshold:
+                    goal_object0 += self.np_random.uniform(-0.1, 0.1, size=3)
 
-            # Start off goals array with the first block
+                # Start off goals array with the first block
             goals.append(goal_object0)
 
             # These below don't have goal object0 because only object0+ can be used for towers in PNP stage. In stack stage,
@@ -468,6 +471,18 @@ class FetchBlockConstructionEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
                 'is_success': self._is_success(obs['achieved_goal'], self.goal),
             }
             reward = self.compute_reward(obs['achieved_goal'], self.goal, info)
+            done = self._is_done(obs['achieved_goal'], self.goal, info)
         else:
             raise ("Obs_type not recognized")
         return obs, reward, done, info
+
+    def _is_done(self, achieved_goal, goal, info):
+        subgoal_distances = self.subgoal_distances(achieved_goal, goal)
+        # Using incremental reward for each block in correct position
+        reward = -np.sum([(d > self.distance_threshold).astype(np.float32) for d in subgoal_distances], axis=0)
+        reward = np.asarray(reward)
+
+        # If blocks are successfully aligned with goals, and gripper being away from the goals
+        if reward == 0 and self.gripper_pos_far_from_goals(achieved_goal, goal):
+            return True
+        return False
