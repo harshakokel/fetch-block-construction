@@ -216,8 +216,8 @@ class FetchBlockConstructionEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
                 # If we're only stacking, do not allow the block0 to be in the air
                 goal_object0[2] += self.np_random.uniform(0, 0.45)
             else: #if not in air, ensure it is away
-                if np.linalg.norm( object_0_pos - goal_object0) < self.distance_threshold:
-                    goal_object0 += self.np_random.uniform(0.5, 0.1, size=3)
+                while np.linalg.norm( object_0_pos - goal_object0) < self.distance_threshold:
+                    goal_object0 += self.np_random.uniform(-0.05, 0.05, size=3)
 
                 # Start off goals array with the first block
             goals.append(goal_object0)
